@@ -1,67 +1,109 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"os"
 
 	"cloud.google.com/go/cloudsqlconn"
-	"cloud.google.com/go/cloudsqlconn/postgres/pgxv4"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/stdlib"
 )
 
-func apiHandler(w http.ResponseWriter, r  *http.Request){
-	w.Header().Set("Content-Type" , "appliction/json")
+func apiHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "appliction/json")
 	fmt.Fprintf(w, `{"message" : "Hello From API", "status" : "success"}`)
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request){
-		fmt.Fprintf(w, "<h1>Welcome to Go HTTP Server! </h1>")
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "<h1>Welcome to Go HTTP Server! </h1>")
 	fmt.Fprintf(w, "<p>Server is running successfully! </p>")
-	
+
 }
 
-func aboutHandler(w http.ResponseWriter, r *http.Request){
+func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<h1>About Page</h1>")
 	fmt.Fprintf(w, "Simple HTTP Server")
 }
 
-//https://pkg.go.dev/cloud.google.com/go/cloudsqlconn
-func connect(){
-	// Register the Cloud SQL Go Connector's driver
-	cleanup , err := pgxv4.RegisterDriver("cloudsql-postgres", cloudsqlconn.WithIAMAuthN()) //Optional IAM AUTH
+// https://pkg.go.dev/cloud.google.com/go/cloudsqlconn
+
+func connect() *sql.DB {
+
+
+	//set JSON key file
+	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "key.json")
+
+	// Cloud SQL connection details
+	var (
+		instanceConnectionName = "gcloud-learn-483710:us-central1:go-database" // PROJECT:REGION:INSTANCE
+		user                   = "go-postgres-service-account@gcloud-learn-483710.iam"
+		dbName                 = "learn-cloud-sql-go"
+	)
+
+	fmt.Println("🔄 Connecting to Cloud SQL...")
+	fmt.Printf("Instance: %s\n", instanceConnectionName)
+	fmt.Printf("User: %s\n", user)
+	fmt.Printf("Database: %s\n", dbName)
+
+	// Create Cloud SQL dialer with IAM authentication
+	d, err := cloudsqlconn.NewDialer(context.Background(), cloudsqlconn.WithIAMAuthN())
 	if err != nil {
-		log.Fatalf("pgxv4.RegisterDriver: %v" ,err)
+		log.Fatalf("❌ cloudsqlconn.NewDialer failed: %v", err)
 	}
-	defer cleanup() //important for stopping background processes
 
-	db , err := sql.Open("cloudsql-postgres", "host=go-database:us-central1:public-instance-1 user=go-postgres-service-account@gcloud-learn-483710.iam password=Postgresql@123 dbname=learn-cloud-sql-go sslmode=disable")
+	// Build DSN for pgx v4
+	dsn := fmt.Sprintf("user=%s database=%s", user, dbName)
 
+	// Parse config (pgx v4 syntax)
+	config, err := pgx.ParseConfig(dsn)
 	if err != nil {
-		log.Fatalf("sql.Open: %v", err)
+		log.Fatalf("❌ pgx.ParseConfig failed: %v", err)
 	}
 
+	// Set custom dialer to use Cloud SQL connector
+	config.DialFunc = func(ctx context.Context, network, instance string) (net.Conn, error) {
+		return d.Dial(ctx, instanceConnectionName)
+	}
+
+	// Register the config with stdlib (pgx v4)
+	dbURI := stdlib.RegisterConnConfig(config)
+
+	// Open database connection
+	db, err := sql.Open("pgx", dbURI)
+	if err != nil {
+		log.Fatalf("❌ sql.Open failed: %v", err)
+	}
+
+	// Test connection
+	fmt.Println("🔄 Testing connection with Ping...")
+	if err := db.Ping(); err != nil {
+		log.Fatalf("❌ db.Ping failed: %v", err)
+	}
+
+	fmt.Println("✅ Successfully connected to Cloud SQL!")
+	return db
+}
+func main() {
+	// Database connection
+	db := connect()
 	defer db.Close()
 
-	if err := db.Ping(); err != nil{
-		log.Fatalf("db.Ping: %v", err)
-	}
-	fmt.Println("Successfully connected to Cloud SQL")
-
-}
-func main(){
-	//database connection 
-	connect()
 	//Routes
-	http.HandleFunc("/", apiHandler)
-	http.HandleFunc("/health", healthHandler)
+	http.HandleFunc("/", healthHandler)
+	http.HandleFunc("/api", apiHandler)
 	http.HandleFunc("/about", aboutHandler)
 
 	//server configuration
 	port := ":8080"
+	fmt.Printf("🚀 Server starting on http://localhost%s\n", port)
 
 	err := http.ListenAndServe(port, nil)
 	if err != nil {
-	log.Fatal("Server is not Started: ", err)
-	}	
+		log.Fatal("Server is not Started: ", err)
+	}
 }
