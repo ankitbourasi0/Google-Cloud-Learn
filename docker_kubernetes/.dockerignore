@@ -1,0 +1,37 @@
+# Git files
+.git
+.gitignore
+
+# Terraform files
+.terraform
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# IDE files
+.vscode
+.idea
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+
+# Documentation
+README.md
+*.md
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

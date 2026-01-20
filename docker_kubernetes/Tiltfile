@@ -1,0 +1,35 @@
+#Tiltfile  - Local Kubernets Development
+
+# Build Docker Image
+docker_build(
+    #Source
+    'go-api',
+    # Destination 
+    '.',
+    dockerfile='Dockerfile',
+    live_update=[
+        #When Code file(Go) changes, Sync and rebuild
+        #Source    Destination
+        sync('.', '/build'),
+        run('cd /build && go build -o /bin/app .', trigger=['*.go'])
+    ]
+)
+
+
+# Apply Kubernets manifests
+k8s_yaml('k8s-local.yaml')
+
+# Port forward
+k8s_resource(
+    'go-app-development',
+    ports_forward='8080:8080',
+    labels=['backend']
+)
+
+# Custom button to View Logs
+local_resource(
+    'view-logs',
+    'kubectl logs -l app=go-app --tail=50',
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False
+)
