@@ -1,0 +1,130 @@
+#service account (important for service account)
+apiVersion: v1
+kind: ServiceAccount
+metadata: 
+  name: go-postgres-ksa
+  namespace: default
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: go-app-deployment
+  labels:
+    app: go-app
+    env: production
+spec:
+  replicas: 2  # High availability ke liye 2 pods
+  selector:
+    matchLabels:
+      app: go-app
+  template:
+    metadata:
+      labels:
+        app: go-app
+        env: production
+    spec:
+      # GKE Workload Identity - Service account for Cloud SQL access
+      serviceAccountName: go-postgres-ksa
+      
+      containers:
+      - name: go-app
+        # Your image from Google Container Registry
+        image: gcr.io/gcloud-learn-483710/go-api:v2
+        
+        ports:
+        - containerPort: 8080
+          name: http
+        
+        env:
+        # Production environment
+        - name: ENV
+          value: "production"
+        
+        # Cloud SQL connection details
+        - name: DB_USER
+          value: "go-postgres-service-account@gcloud-learn-483710.iam"
+        
+        - name: DB_NAME
+          value: "learn-cloud-sql-go"
+        
+        - name: INSTANCE_CONNECTION_NAME
+          value: "gcloud-learn-483710:us-central1:go-database"
+        
+        # Resource requests (Autopilot requires these)
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        
+
+---
+# Service - External LoadBalancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-app-service
+  labels:
+    app: go-app
+spec:
+  type: LoadBalancer
+  selector:
+    app: go-app
+  ports:
+  - protocol: TCP
+    port: 80          # External port (internet se access)
+    targetPort: 8080  # Container port
+    name: http
+  sessionAffinity: ClientIP  # Same client always same pod pe jayega
+
+---
+# Horizontal Pod Autoscaler (optional - auto scaling)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: go-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: go-app-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # - type: Resource
+  #   resource:
+  #     name: memory
+  #     target:
+  #       type: Utilization
+  #       averageUtilization: 80
+
+---

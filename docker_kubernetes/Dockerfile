@@ -1,5 +1,3 @@
-#reference - https://www.youtube.com/watch?v=S2Atn6LHXeQ
-
 # Use the official Golang image as the base
 FROM golang:1.25.5-alpine AS builder
 
@@ -31,16 +29,8 @@ RUN apk --no-cache add ca-certificates
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app /bin/app
 
-# Expose the application's port
+# Expose the application's port (should match your Go code)
 EXPOSE 8080
 
 # Run the application
 CMD ["/bin/app"]
-
-
-
-
-
-
-
-

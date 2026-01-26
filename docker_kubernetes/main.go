@@ -34,9 +34,18 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 
 func connect() *sql.DB {
 
+	if os.Getenv("ENV") == "local" {
+		fmt.Println("Running in local - skipping Cloud SQL connection ")
+		// Local mein agar key use karni hai toh env var set kar sakte ho
+        // os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "key.json")
+		return nil
+	}
+	
 
+	// PRODUCTION MEIN: os.Setenv hatado. 
+    // Google libraries apne aap Workload Identity se credentials utha lengi.
 	//set JSON key file
-	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "key.json")
+	// os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "key.json")
 
 	// Cloud SQL connection details
 	var (

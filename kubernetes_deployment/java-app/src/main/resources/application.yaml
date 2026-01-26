@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: java-app
+  datasource:
+    url: jdbc:mysql:///my-database?cloudSqlInstance=gcloud-learn-483710:us-central1:my-cloud-instance&socketFactory=com.google.cloud.sql.mysql.SocketFactory&enabledTLSProtocols=TLSv1.2
+    username: root
+    password: 9bpXi&Us&:@E%}s^
+  jpa:
+    hibernate:
+      format_sql: true
+      ddl-auto: update
+
+    show-sql: true
+
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+

@@ -21,8 +21,8 @@ k8s_yaml('k8s-local.yaml')
 
 # Port forward
 k8s_resource(
-    'go-app-development',
-    ports_forward='8080:8080',
+    'go-app-deployment',
+    port_forwards='8080:8080',
     labels=['backend']
 )
 
