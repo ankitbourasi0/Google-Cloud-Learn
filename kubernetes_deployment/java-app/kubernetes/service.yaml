@@ -1,0 +1,17 @@
+# external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-app-service
+  namespace: default
+  labels:
+    app: java-app
+spec:
+  type: LoadBalancer #will get EXTERNAL  IP for internet access
+  selector:
+    app: java-app #send traffic to which pods
+  ports:
+  - name: http
+    port: 80 #external port where user connects
+    targetPort: 8080 #Container port(spring boot app connection)
+    protocol: TCP

@@ -1,0 +1,66 @@
+#Application deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-app #deployment name
+  namespace: default #which name on deploy
+  labels:
+    app: java-app #for identification
+#1. deployment details
+spec: 
+  replicas: 2 #no. of pods
+  selector:
+    matchLabels:
+      app: java-app #which pods to manage
+  #2. template details - definition of Pods
+  template:
+    metadata:
+      labels:
+        app: java-app #pod labels - should match on selector
+    spec:
+      serviceAccountName: java-app-ksa #for workload identity
+      #3. container details - application container
+      containers:
+      - name: java-app
+        image: gcr.io/gcloud-learn-483710/java-app:v3 #docker image on gcr
+        imagePullPolicy: Always #always pull latest image
+        ports: 
+        - containerPort: 8080 # port - application run on container
+          protocol: TCP
+        #4. environmental variables  
+        env: 
+        - name: SPRING_DATASOURCE_URL 
+          #database connection string
+          value: "jdbc:mysql:///my-database?cloudSqlInstance=gcloud-learn-483710:us-central1:my-cloud-instance&socketFactory=com.google.cloud.sql.mysql.SocketFactory&enabledTLSProtocols=TLSv1.2"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: cloudsql-db-credentials #take username from secret
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD   
+          valueFrom:
+            secretKeyRef: 
+              name: cloudsql-db-credentials #take password from secret
+              key: password
+        #5. resources  - cpu and memory limits             
+        resources:
+          requests:  #minimum resource needed
+            memory: "512Mi"
+            cpu: "250m" 
+          limits: #maximum resource allowed
+            memory: "1Gi"
+            cpu: "500m"
+        #6. health checks
+        livenessProbe: #is pod alive or not? 
+          httpGet:
+            path: /health/db
+            port: 8080
+          initialDelaySeconds: 60 #wait 60 seconds after startup
+          periodSeconds: 10 # check in each 10 seconds
+        readinessProbe: #pod ready for taking traffic?
+          httpGet:
+            path: /health/db
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+  
